@@ -9,12 +9,15 @@ You can also include images in this folder and reference them in the markdown. E
 
 ## How it works
 
-Explain how your project works
+This works creating pm32 multiplier that multiplies a specific number of bit
+and includes a project, pm32 and sm.. source file. We made all the module anmes
+match and that is how it works. Hooray
 
 ## How to test
 
-Explain how to use your project
+I change the modules and things like that and then I push them to git
+and see if all the actions pass
 
 ## External hardware
 
-List external hardware used in your project (e.g. PMOD, LED display, etc), if any
+There is no external hardware for this homework
