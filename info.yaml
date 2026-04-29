@@ -56,4 +56,4 @@ pinout:
   uio[7]: ""
 
 # Do not change!
-yaml_version: 6
+yaml_version: 0.13.1ss
