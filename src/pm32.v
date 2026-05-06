@@ -1,5 +1,5 @@
 // A signed 32x32 Multiplier utilizing SPM
-// 
+//
 // Copyright 2016, mshalan@aucegypt.edu
 
 `timescale		    1ns/1ps
@@ -24,17 +24,17 @@ module pm32 (
     always @(posedge clk or posedge rst)
         if(rst)
             state  <= IDLE;
-        else 
+        else
             state <= nstate;
-    
+
     always @*
         case(state)
             IDLE    :   if(start) nstate = RUNNING; else nstate = IDLE;
-            RUNNING :   if(cnt == 64) nstate = DONE; else nstate = RUNNING; 
+            RUNNING :   if(cnt == 64) nstate = DONE; else nstate = RUNNING;
             DONE    :   if(start) nstate = RUNNING; else nstate = DONE;
             default :   nstate = IDLE;
         endcase
-    
+
     always @(posedge clk)
         cnt <= ncnt;
 
@@ -51,7 +51,7 @@ module pm32 (
             Y <= 32'b0;
         else if((start == 1'b1))
             Y <= mp;
-        else if(state==RUNNING) 
+        else if(state==RUNNING)
             Y <= (Y >> 1);
 
     always @(posedge clk or posedge rst)
@@ -62,7 +62,7 @@ module pm32 (
         else if(state==RUNNING)
             p <= {pw, p[63:1]};
 
-    wire y = (state==RUNNING) ? Y[0] : 1'b0;
+    wire y = Y[0];
 
     spm #(.SIZE(32)) spm32(
         .clk(clk),
@@ -75,3 +75,4 @@ module pm32 (
     assign done = (state == DONE);
 
 endmodule
+

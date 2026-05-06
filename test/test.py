@@ -1,4 +1,3 @@
-# SPDX-FileCopyrightText: © 2024 Tiny Tapeout
 # SPDX-License-Identifier: Apache-2.0
 
 import cocotb
@@ -6,35 +5,71 @@ from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
 
 
-@cocotb.test()
-async def test_project(dut):
-    dut._log.info("Start")
+async def reset_dut(dut):
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    dut.ena.value = 1
 
-    # Set the clock period to 10 us (100 KHz)
+    dut.rst_n.value = 0
+    await ClockCycles(dut.clk, 5)
+
+    dut.rst_n.value = 1
+    await ClockCycles(dut.clk, 2)
+
+
+async def run_multiply_case(dut, mc, mp):
+    assert 0 <= mc <= 127
+    assert 0 <= mp <= 255
+
+    dut.ui_in.value = mc
+    dut.uio_in.value = mp
+    await ClockCycles(dut.clk, 2)
+
+    dut.ui_in.value = (1 << 7) | mc
+    await ClockCycles(dut.clk, 1)
+
+    dut.ui_in.value = mc
+
+    for _ in range(80):
+        await ClockCycles(dut.clk, 1)
+        if int(dut.uo_out.value) & 0x80:
+            break
+
+    raw_out = int(dut.uo_out.value)
+    done = (raw_out >> 7) & 1
+    got_product_low7 = raw_out & 0x7F
+    expected_product_low7 = (mc * mp) & 0x7F
+
+    assert done == 1, f"done never went high for mc={mc}, mp={mp}"
+    assert got_product_low7 == expected_product_low7, (
+        f"wrong product for mc={mc}, mp={mp}: "
+        f"got low7={got_product_low7}, expected low7={expected_product_low7}"
+    )
+
+
+@cocotb.test()
+async def test_pm32_selected_cases(dut):
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
-    # Reset
-    dut._log.info("Reset")
-    dut.ena.value = 1
-    dut.ui_in.value = 0
-    dut.uio_in.value = 0
-    dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 10)
-    dut.rst_n.value = 1
+    test_cases = [
+        (0, 0),
+        (0, 7),
+        (1, 1),
+        (1, 255),
+        (2, 3),
+        (3, 5),
+        (7, 9),
+        (10, 12),
+        (15, 15),
+        (31, 4),
+        (63, 2),
+        (64, 2),
+        (100, 3),
+        (127, 1),
+        (127, 255),
+    ]
 
-    dut._log.info("Test project behavior")
-
-    # Set the input values you want to test
-    dut.ui_in.value = 20
-    dut.uio_in.value = 30
-
-    # Wait for one clock cycle to see the output values
-    await ClockCycles(dut.clk, 1)
-
-    # The following assersion is just an example of how to check the output values.
-    # Change it to match the actual expected output of your module:
-    assert dut.uo_out.value == 50
-
-    # Keep testing the module by changing the input values, waiting for
-    # one or more clock cycles, and asserting the expected output values.
+    for mc, mp in test_cases:
+        await reset_dut(dut)
+        await run_multiply_case(dut, mc, mp)
