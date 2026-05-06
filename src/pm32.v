@@ -62,7 +62,7 @@ module pm32 (
         else if(state==RUNNING)
             p <= {pw, p[63:1]};
 
-    wire y = Y[0];
+    wire y = (state == RUNNING) ? Y[0] : 1'b0;
 
     spm #(.SIZE(32)) spm32(
         .clk(clk),
