@@ -1,5 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import ClockCycles
@@ -17,59 +15,73 @@ async def reset_dut(dut):
     await ClockCycles(dut.clk, 2)
 
 
-async def run_multiply_case(dut, mc, mp):
-    assert 0 <= mc <= 127
-    assert 0 <= mp <= 255
-
-    dut.ui_in.value = mc
-    dut.uio_in.value = mp
-    await ClockCycles(dut.clk, 2)
-
-    dut.ui_in.value = (1 << 7) | mc
+async def pulse_input(dut, value):
+    dut.ui_in.value = value
+    await ClockCycles(dut.clk, 1)
+    dut.ui_in.value = 0
     await ClockCycles(dut.clk, 1)
 
-    dut.ui_in.value = mc
-
-    for _ in range(80):
+async def wait_for_done(dut):
+    for _ in range(20):
         await ClockCycles(dut.clk, 1)
-        if int(dut.uo_out.value) & 0x80:
-            break
 
-    raw_out = int(dut.uo_out.value)
-    done = (raw_out >> 7) & 1
-    got_product_low7 = raw_out & 0x7F
-    expected_product_low7 = (mc * mp) & 0x7F
+        out = int(dut.uo_out.value)
 
-    assert done == 1, f"done never went high for mc={mc}, mp={mp}"
-    assert got_product_low7 == expected_product_low7, (
-        f"wrong product for mc={mc}, mp={mp}: "
-        f"got low7={got_product_low7}, expected low7={expected_product_low7}"
-    )
+        if (out >> 7) & 1:
+            return out
+
+    assert False, "done did not go high"
+
+@cocotb.test()
+async def test_vending_machine_item_a(dut):
+    clock = Clock(dut.clk, 10, units="us")
+    cocotb.start_soon(clock.start())
+
+    await reset_dut(dut)
+
+    # start machine
+    await pulse_input(dut, 0x80)
+
+    # insert dime + nickel = 15 cents
+    await pulse_input(dut, 0x02)
+    await pulse_input(dut, 0x01)
+
+    # select item A
+    dut.ui_in.value = 0x08
+    await ClockCycles(dut.clk, 2)
+    dut.ui_in.value = 0
+
+    out = await wait_for_done(dut)
+
+    dispense_A = out & 0x01
+    done = (out >> 7) & 0x01
+
+    assert done == 1, "done did not go high"
+    assert dispense_A == 1, "item A was not dispensed"
 
 
 @cocotb.test()
-async def test_pm32_selected_cases(dut):
-    clock = Clock(dut.clk, 10, unit="us")
+async def test_vending_machine_insufficient_funds(dut):
+    clock = Clock(dut.clk, 10, units="us")
     cocotb.start_soon(clock.start())
 
-    test_cases = [
-        (0, 0),
-        (0, 7),
-        (1, 1),
-        (1, 255),
-        (2, 3),
-        (3, 5),
-        (7, 9),
-        (10, 12),
-        (15, 15),
-        (31, 4),
-        (63, 2),
-        (64, 2),
-        (100, 3),
-        (127, 1),
-        (127, 255),
-    ]
+    await reset_dut(dut)
 
-    for mc, mp in test_cases:
-        await reset_dut(dut)
-        await run_multiply_case(dut, mc, mp)
+    # start machine
+    await pulse_input(dut, 0x80)
+
+    # insert only nickel = 5 cents
+    await pulse_input(dut, 0x01)
+
+    # try to select item B, which costs 25 cents
+    dut.ui_in.value = 0x10
+    await ClockCycles(dut.clk, 2)
+    dut.ui_in.value = 0
+
+    out = await wait_for_done(dut)
+
+    insufficient = (out >> 3) & 0x01
+    done = (out >> 7) & 0x01
+
+    assert done == 1, "done did not go high"
+    assert insufficient == 1, "insufficient funds did not go high"
