@@ -1,13 +1,15 @@
+`default_nettype none
+
 module vending_machine (
-    input clk,
-    input rst,
-    input start,
-    input nickel,
-    input dime,
-    input quarter,
-    input select_A,
-    input select_B,
-    input cancel,
+    input wire clk,
+    input wire rst,
+    input wire start,
+    input wire nickel,
+    input wire dime,
+    input wire quarter,
+    input wire select_A,
+    input wire select_B,
+    input wire cancel,
     output reg dispense_A,
     output reg dispense_B,
     output reg return_change,
@@ -16,12 +18,11 @@ module vending_machine (
     output reg [2:0] balance_display
 );
 
-    localparam IDLE = 0;
-    localparam ACCEPT = 1;
-    localparam CHECK = 2;
-    localparam DISPENSE = 3;
-    localparam RETURN = 4;
-    localparam DONE = 5;
+    localparam IDLE   = 3'd0;
+    localparam ACCEPT = 3'd1;
+    localparam CHECK  = 3'd2;
+    localparam RETURN = 3'd3;
+    localparam DONE   = 3'd4;
 
     reg [2:0] state;
     reg [7:0] balance;
@@ -37,15 +38,16 @@ module vending_machine (
             done <= 0;
             balance_display <= 0;
         end else begin
-            dispense_A <= 0;
-            dispense_B <= 0;
-            return_change <= 0;
-            insufficient_funds <= 0;
-            done <= 0;
-
             case (state)
                 IDLE: begin
                     balance <= 0;
+                    dispense_A <= 0;
+                    dispense_B <= 0;
+                    return_change <= 0;
+                    insufficient_funds <= 0;
+                    done <= 0;
+                    balance_display <= 0;
+
                     if (start)
                         state <= ACCEPT;
                 end
@@ -66,20 +68,15 @@ module vending_machine (
                 end
 
                 CHECK: begin
-                    if (select_A && balance >= 15) begin
-                        dispense_A <= 1;
-                        state <= DISPENSE;
-                    end else if (select_B && balance >= 25) begin
-                        dispense_B <= 1;
-                        state <= DISPENSE;
-                    end else begin
-                        insufficient_funds <= 1;
-                        state <= DONE;
-                    end
-                end
-
-                DISPENSE: begin
                     done <= 1;
+
+                    if (select_A && balance >= 15)
+                        dispense_A <= 1;
+                    else if (select_B && balance >= 25)
+                        dispense_B <= 1;
+                    else
+                        insufficient_funds <= 1;
+
                     state <= DONE;
                 end
 
@@ -91,8 +88,13 @@ module vending_machine (
 
                 DONE: begin
                     done <= 1;
+
                     if (!start)
                         state <= IDLE;
+                end
+
+                default: begin
+                    state <= IDLE;
                 end
             endcase
         end
