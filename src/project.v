@@ -1,3 +1,16 @@
+`default_nettype none
+
+module tt_um_ricardohuizar (
+    input  wire [7:0] ui_in,
+    output wire [7:0] uo_out,
+    input  wire [7:0] uio_in,
+    output wire [7:0] uio_out,
+    output wire [7:0] uio_oe,
+    input  wire       ena,
+    input  wire       clk,
+    input  wire       rst_n
+);
+
 wire dispense_A;
 wire dispense_B;
 wire return_change;
@@ -32,7 +45,9 @@ assign uo_out = {
     dispense_A
 };
 
-assign uio_out = 0;
-assign uio_oe = 0;
+assign uio_out = 8'b0;
+assign uio_oe  = 8'b0;
 
 wire _unused = &{ena, ui_in[6], uio_in, 1'b0};
+
+endmodule
